@@ -1,0 +1,13 @@
+bk-jl-files/
+*.swp
+*.swo
+*.txt
+*.sh
+*.tar.gz
+*.aux
+*.toc
+*.tex
+*.log
+attypes-bondtypes-bncw.out
+Bondcow-logo/
+machinery-bondcow-bk.jl

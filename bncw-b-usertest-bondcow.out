@@ -1,0 +1,18 @@
+usertest-bondcow.smi 8
+8 18 26
+1 14.29
+
+== hat-hat bonds
+3
+1 ; C C a ; 6  75.0 23.08
+2 ; C O d ; 1  12.5  3.85
+3 ; C N t ; 1  12.5  3.85
+
+== light-atom bonds
+3
+1 ; H C s ; 13 72.22  50.0
+2 ; H N s ;  3 16.67 11.54
+3 ; H O s ;  2 11.11  7.69
+
+== anomaly bonds
+0
