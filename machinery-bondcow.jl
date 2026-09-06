@@ -1,6 +1,3 @@
-# here0 once I'm done with zyklop's selfies and groupselfies support, I can add more modes to this program: scan the tokens of a selfies file or groupselfies
-
-# here1 add a rollinglog or the like to have a clue of when the process is going to end
 
 import Pkg # Only used if the user requests installrequirements_bondcow()
 # Any additional import must be reflected in installrequirements_bondcow() and the README.md file
