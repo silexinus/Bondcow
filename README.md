@@ -71,7 +71,7 @@ The second and third block vary in size depending on the amount of bond types fo
 3. Any further lines list:
     * the index of the bond type within this list,
     * the atoms involved and the bond type (`C C a` means "aromatic carbon-carbon bond", `C O d` means "double carbon-oxygen bond", and so on),
-    * the amount of bonds of this type, the percentage this corresponds to within the including-light-atoms bond class, and the percentage this corresponds to considering all bonds in the file.
+    * the amount of bonds of this type, the percentage this corresponds to within the light-atoms-included bond class, and the percentage this corresponds to considering all bonds in the file.
 
 The third block has the same structure, but it lists:
 1. A header.
@@ -188,7 +188,7 @@ First off, download these files to a folder named, say, `Bondcow`: `bondcow.jl`,
 * `PlainCLIArgs.jl`
 * `PyCall.jl`
 
-You can find the julia install instructions [here](https://julialang.org/downloads/) (or the manual-download instructions [here](https://julialang.org/downloads/manual-downloads/)). 
+You can find the `julia` install instructions [here](https://julialang.org/downloads/) (or the manual-download instructions [here](https://julialang.org/downloads/manual-downloads/)). 
 
 Once `julia` is installed, you can install the required packages by running this command from a `julia` REPL or a notebook:
 

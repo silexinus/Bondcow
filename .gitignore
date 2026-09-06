@@ -8,6 +8,6 @@ bk-jl-files/
 *.toc
 *.tex
 *.log
-attypes-bondtypes-bncw.out
+attypes-bondtypes-bncw.*
 Logo-Bondcow/
 machinery-bondcow-bk.jl
