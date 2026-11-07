@@ -18,7 +18,11 @@
   - [The `julia` part](#the-julia-part)
   - [The python part](#the-python-part)
 - [Examples of 'real' output files](#examples-of-real-output-files)
-
+  - [QM9 bond list](#qm9-bond-list)
+  - [QM9 atom list](#qm9-atom-list)
+  - [QM9 atom list (by hybridization)](#qm9-atom-list-by-hybridization)
+  - [QM9 token list](#qm9-token-list)
+  - [QM9 formula list](#qm9-formula-list)
 
 # Usage
 
@@ -385,7 +389,7 @@ Blocks 4-7 follow the same format:
 * Block 6 covers HCNO, sorted by N
 * Block 7 covers HCNO, sorted by O
 
-The eighth block lists all formulas in the file, sorted by frequency:
+Block 8 lists all formulas in the file, sorted by frequency:
 1. A header.
 2. The amount of unique formulas in the file.
 3. Any further lines list:
@@ -410,7 +414,7 @@ You can find the `julia` install instructions [here](https://julialang.org/downl
 
 Once `julia` is installed, you can install the required packages by running this command from a `julia` REPL or a notebook:
 
-```
+```julia
 import Pkg; Pkg.add(["PlainCLIArgs","PeriodicTable","PyCall"])
 ```
 
@@ -440,6 +444,8 @@ It should print something like this:
 ```
 
 # Examples of 'real' output files
+
+## QM9 bond list
 
 Here's file `bncw-b-smis1-qm9.out`. It lists the bond types in QM9.
 
@@ -477,6 +483,8 @@ smis1-qm9.smi 133885
 0
 ```
 
+## QM9 atom list
+
 Here's file `bncw-a-smis1-qm9.out`. It lists the atom types in QM9.
 
 ```
@@ -492,6 +500,8 @@ smis1-qm9.smi 133885
 4 ; F ;    3314  0.28  0.14
 5 ; H ; 1230122  0.00 51.09
 ```
+
+## QM9 atom list (by hybridization)
 
 Here's file `bncw-y-smis1-qm9.out`. It lists the atom types in QM9, considering their hybridization.
 
@@ -513,6 +523,8 @@ smis1-qm9.smi 133885
  9 ; F_sp3 ;    3314  0.28  0.14
 10 ; H     ; 1230122  0.00 51.09
 ```
+
+## QM9 token list
 
 Here's file `bncw-t-smis1-qm9-smi.out`. It lists the tokens in the first smiles of the QM9 molecules. So, for example, propylene oxide (molecule #44) is represented as `CC1CO1` (the first smiles) rather than `C[C@H]1CO1` (the second smiles).
 
@@ -570,9 +582,11 @@ smis1-qm9.smi 133885
 22 ;     7  0.01
 ```
 
+## QM9 formula list
+
 File `bncw-f-smis1-qm9-smi.out` lists all the formulas in QM9. However. QM9 has 621 different formulas, and that plus the extra tables adds up to 687 lines. Therefore, this page displays the tables plus the 20 most frequent formulas.
 
-The full file is available at
+The complete file (19 kB) is available at
 https://github.com/silexinus/Bondcow/blob/main/Output-examples-bondcow/bncw-f-smis1-qm9.out
 
 ```
