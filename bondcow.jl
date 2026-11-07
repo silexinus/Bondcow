@@ -6,11 +6,11 @@
 
 include("machinery-bondcow.jl")
 
-if (length(ARGS) == 0)
+if length(ARGS) == 0
     printhelp_bondcow()
 end
 
-behaviorbondcow = loadbehavior_bondcow(ARGS)
+behaviorbondcow = parseargs(ARGS)
 
 if behaviorbondcow.modehelp
     printhelp_bondcow()
@@ -26,13 +26,18 @@ end
 
 if behaviorbondcow.modeatoms
     # here1 fix the makeatcensus call. modehybridization should be read from the struct; maybe make an alias that takes the filename and hybridization and packs these into a BehaviorBondcow?
-    (attypes,atcounts,nsmis,nfailed) = makeatcensus(behaviorbondcow.filesmis;modehybridization=false)
-    printatcensus(behaviorbondcow.filesmis,attypes,atcounts,nsmis,nfailed)
+    (attypes,atcounts,nmolecs,nfailed) = makeatcensus(behaviorbondcow.filemolecs;modehybridization=false)
+    outputatcensus(behaviorbondcow,attypes,atcounts,nmolecs,nfailed)
 elseif behaviorbondcow.modebonds
-    (bondtypes,bondcounts,nsmis,nfailed,anomalybonds) = makebondcensus(behaviorbondcow.filesmis)
-    printbondcensus(behaviorbondcow.filesmis,bondtypes,bondcounts,nsmis,nfailed,anomalybonds)
+    (bondtypes,bondcounts,nmolecs,nfailed,anomalybonds) = makebondcensus(behaviorbondcow.filemolecs)
+    outputbondcensus(behaviorbondcow,bondtypes,bondcounts,nmolecs,nfailed,anomalybonds)
 elseif behaviorbondcow.modehybridization
-    (attypes,atcounts,nsmis,nfailed) = makeatcensus(behaviorbondcow.filesmis;modehybridization=true)
-    printatcensus(behaviorbondcow.filesmis,attypes,atcounts,nsmis,nfailed)
+    (attypes,atcounts,nmolecs,nfailed) = makeatcensus(behaviorbondcow.filemolecs;modehybridization=true)
+    outputatcensus(behaviorbondcow,attypes,atcounts,nmolecs,nfailed)
+elseif behaviorbondcow.modetokens
+    (tokentypes,tokencounts,lencounts,nmolecs,nfailed) = maketokencensus(behaviorbondcow.filemolecs)
+    outputtokencensus(behaviorbondcow,tokentypes,tokencounts,lencounts,nmolecs,nfailed)
+elseif behaviorbondcow.modeformula
+    (formulatypes,formulacounts,nmolecs,nfailed) = makeformulacensus(behaviorbondcow)
+    outputformulacensus(behaviorbondcow,formulatypes,formulacounts,nmolecs,nfailed)
 end
-

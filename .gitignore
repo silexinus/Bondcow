@@ -8,6 +8,11 @@ bk-jl-files/
 *.toc
 *.tex
 *.log
+old*
+tmp*
+previouslyonthewalkingdead
 attypes-bondtypes-bncw.*
-Logo-Bondcow/
 machinery-bondcow-bk.jl
+Logo-Bondcow/
+Versionold-output-examples-bondcow/
+Imgs-for-bondcow/

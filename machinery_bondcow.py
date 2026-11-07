@@ -4,6 +4,9 @@
 from rdkit import Chem
 from rdkit import RDLogger
 
+# For the formula-counting machinery
+from collections import Counter
+
 # If any unparseable molecules are found, the julia code will be notified of this anyway
 #   because of the canary var. Therefore we can turn off any console-printing warnings here
 RDLogger.DisableLog('rdApp.*')
@@ -104,3 +107,44 @@ def getlistatoms_hybridization(smi):
         return (True,symhyb)
     except Exception as e:
         return (False, [])
+
+# getformula("CCO") -> ([1, 6, 8], [6, 2, 1])
+# Strict mode is default (it'll reject any molecule where, say, hydrogens have 2 bonds or carbons have 5 bonds)
+#   **Use strict mode unless you're certain you need the alternate behavior**
+# Lax mode skips sanitization (so it allows smiles where the above happens), then attempts to add hydrogens
+# Trust-input mode skips sanitization AND doesn't add hydrogens
+def getformula(smi, mode="strict"):
+    """
+    Return (zahlen, counts), where zahlen contains atomic numbers.
+
+    modes:
+      "strict"      Parse and sanitize, then add inferred hydrogens.
+      "lax"         Skip sanitization, then attempt to add inferred hydrogens.
+      "trust-input" Skip sanitization and count only atoms written in the SMILES.
+      "faith"       Alias for "trust-input".
+    """
+    if mode == "faith":
+        mode = "trust-input"
+    if mode not in {"strict", "lax", "trust-input"}:
+        raise ValueError("mode must be 'strict', 'lax', 'trust-input' or 'faith'")
+
+    params = Chem.SmilesParserParams()
+    params.sanitize = (mode == "strict")
+    params.removeHs = False  # Keep explicit [H] atoms in the parsed graph.
+
+    mol = Chem.MolFromSmiles(smi, params)
+    if mol is None:
+        return (False,[0],[0])
+
+    if mode == "strict":
+        mol = Chem.AddHs(mol)
+    elif mode == "lax":
+        # Permit property-cache calculations without strict valence checking.
+        mol.UpdatePropertyCache(strict=False)
+        mol = Chem.AddHs(mol)
+
+    counts_by_z = Counter(atom.GetAtomicNum() for atom in mol.GetAtoms())
+
+    zahlen = sorted(counts_by_z)
+    counts = [counts_by_z[z] for z in zahlen]
+    return (True, zahlen, counts)
