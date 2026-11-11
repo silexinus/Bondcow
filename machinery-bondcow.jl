@@ -1,8 +1,8 @@
 
-
 # STANDARD PACKAGES. THEY COME PREINSTALLED WITH JULIA
 import Pkg # Only used if the user requests installrequirements_bondcow()
 import Printf
+import DelimitedFiles
 # THIRD-PARTY PACKAGES. THESE MUST BE INSTALLED WITH Pkg.add()
 # Any additional import must be reflected in installrequirements_bondcow() and the README.md file
 import PlainCLIArgs
@@ -35,16 +35,22 @@ function printhelp_bondcow()
     println("where <tag> is 'b' for bond-mode, 'a' for atom-mode,")
     println("               'y' for hybridization-mode, 't' for token-mode,")
     println("               'f' for formula-mode")
-    println("where <input_stem> is the input filename without the period-extension part")
+    println("where <input_stem> is the input filename without the extension part")
     println("For example,")
     println("  \$:julia bondcow.jl smis1-qm9.smi")
     println("outputs to bncw-b-smis1-qm9.out")
     println("You can override the output filename with, say:")
     println("  \$:julia bondcow.jl smis1-qm9.slf --token -o bncw-t-smis1-qm9-slf.out")
-    println("== Other modes:")
+    println("Though you'd normally use --pushextension for a token census rather than manually specify the output file")
+    println("== Other flags:")
     println(" * --file-only -> Census is saved to disk (default)")
     println(" * --stdout    -> Census is saved to disk AND written to stdout")
     println(" * --stdout-only -> Census is only written to stdout")
+    println(" * --pushextension -> Keep the input filename's extension in the output file.")
+    println("       Mostly use this for token census if your input extension specifies the molecular encoding")
+    println(" * -o FILE -> Save bondcow's output to FILE")
+    println(" * --banlist FILE -> Skip the molecules whose indices are in FILE")
+    println("== Other modes:")
     println(" * -h -> Print this help message")
     println(" * -r -> Install the required julia packages")
     println(" * -v -> Display local version (MODE IS PENDING)")
@@ -91,6 +97,7 @@ end
 struct BehaviorBondcow
     filemolecs :: String
     fileoutput :: String
+    filebanlist :: String
     outputdirection :: Symbol
     modeatoms :: Bool
     modebonds :: Bool
@@ -111,7 +118,13 @@ function dropextension(filepath :: AbstractString)
     return r
 end
 
-function craftfileoutput(fileinput :: AbstractString, modeatom :: Bool, modebond :: Bool, modehybridization :: Bool, modetoken :: Bool, modeformula :: Bool)
+function stemandext(filepath :: AbstractString)
+    r, e = splitext(filepath)
+    isempty(e) && error("file has no extension")
+    return (r,e)
+end
+
+function craftfileoutput(fileinput :: AbstractString, pushextension :: Bool, modeatom :: Bool, modebond :: Bool, modehybridization :: Bool, modetoken :: Bool, modeformula :: Bool)
     if modeatom
         tag = 'a'
     elseif modebond
@@ -124,9 +137,13 @@ function craftfileoutput(fileinput :: AbstractString, modeatom :: Bool, modebond
         tag = 'f'
     end
 
-    inputstem = dropextension(fileinput)
-
-    return "bncw-"*tag*"-"*inputstem*".out"
+    (inputstem,inputext) = stemandext(fileinput)
+    if pushextension
+        # The [2:end] part drops the extension's period
+        return "bncw-"*tag*"-"*inputstem*"-"*inputext[2:end]*".out"
+    else
+        return "bncw-"*tag*"-"*inputstem*".out"
+    end
 end
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -152,6 +169,7 @@ function parseargs(args :: AbstractVector{<:AbstractString})
     # Set defaults
     filemolecs = ""
     fileoutput = ""
+    filebanlist = ""
     outputdirection = :w # :w (default, write to disk, --file-only), :s (--stdout), :ws (write and print to stdout)
     modeatom = false
     modebond = true
@@ -165,6 +183,9 @@ function parseargs(args :: AbstractVector{<:AbstractString})
     moderequirements = false
     modeselfupdate = false
 
+    # This doesn't need to be part of the BehaviorBondcow struct since this value never leaves this function
+    pushextension = false
+
     upeof = false # user passed explicit output filename
     mof = "" # maybe output filename (holds the requested filename, if it exists
 
@@ -172,8 +193,8 @@ function parseargs(args :: AbstractVector{<:AbstractString})
         # Default mode is bonds; load defaults instantly if the user
         #   only passed the filename (it's contained in args[1])
         filemolecs = args[1]
-        fileoutput = craftfileoutput(filemolecs,modeatom,modebond,modehybridization,modetoken,modeformula)
-        return BehaviorBondcow(filemolecs,fileoutput,outputdirection,
+        fileoutput = craftfileoutput(filemolecs,pushextension,modeatom,modebond,modehybridization,modetoken,modeformula)
+        return BehaviorBondcow(filemolecs,fileoutput,filebanlist,outputdirection,
                                modeatom,modebond,modehybridization,modetoken,modeformula,mfsubmode,
                                modehelp,modeversion,modecompareversion,
                                moderequirements,modeselfupdate)
@@ -217,6 +238,30 @@ function parseargs(args :: AbstractVector{<:AbstractString})
         PlainCLIArgs.checkgroupexclusivity(args,ex,["--strict"],
                                                    ["--lax"],
                                                    ["--trust-input","--faith"]
+                                          )
+
+        ex = "Flags -o/--output and --pushextension are incompatible!\n"
+        ex *= "Pass --pushextension to push the input file's extension\n"
+        ex *= "  into the output filename, or use -o/--output to pass a\n"
+        ex *= "  custom filename\n"
+        ex *= "Run\n  \$:julia bondcow.jl -h\n to see the help message"
+        PlainCLIArgs.checkgroupexclusivity(args,ex,["-o", "--output"],
+                                                   ["--pushextension"]
+                                          )
+
+        ex = "Flags -o/--output/--pushextension and --stdout-only are incompatible!\n"
+        ex *= "The first three flags want to write the output to disk, but\n"
+        ex *= "  --stdout-only wants to print to stdout and NOT write to disk\n"
+        ex *= "Run\n  \$:julia bondcow.jl -h\n to see the help message"
+        PlainCLIArgs.checkgroupexclusivity(args,ex,["-o", "--output", "--pushextension"],
+                                                   ["--stdout-only"]
+                                          )
+
+        ex = "Modes --file-only (default) and --stdout and --stdout-only are mutually incompatible\n"
+        ex *= "Run\n  \$:julia bondcow.jl -h\n to see the help message"
+        PlainCLIArgs.checkgroupexclusivity(args,ex,["--file-only"],
+                                                   ["-p", "--stdout"],
+                                                   ["--stdout-only"]
                                           )
 
         claimedtokens = PlainCLIArgs.FlagSearchResult[]
@@ -380,6 +425,22 @@ function parseargs(args :: AbstractVector{<:AbstractString})
         end
         append!(claimedtokens,outputfilenamedata)
 
+        # Resolve optional filebanlist --banlist
+        filebanlistdata = PlainCLIArgs.FlagSearchResult[]
+        append!(filebanlistdata, PlainCLIArgs.seekNvaluesof(args,"--banlist",1))
+        if !isempty(filebanlistdata)
+            filebanlist = PlainCLIArgs.getvalue(filebanlistdata)
+        end
+        append!(claimedtokens,filebanlistdata)
+
+        # Resolve optional pushextension --pushextension
+        pushextensiondata = PlainCLIArgs.FlagSearchResult[]
+        append!(pushextensiondata, PlainCLIArgs.seekflag(args,"--pushextension"))
+        if !isempty(pushextensiondata)
+            pushextension = true
+        end
+        append!(claimedtokens,pushextensiondata)
+
         if modeatom || modebond || modehybridization || modetoken || modeformula
 
             # Fetch the non-flag from ARGS. There's only supposed to be one nonflag
@@ -400,7 +461,7 @@ function parseargs(args :: AbstractVector{<:AbstractString})
             if upeof
                 fileoutput = mof
             else
-                fileoutput = craftfileoutput(filemolecs,modeatom,modebond,modehybridization,modetoken,modeformula)
+                fileoutput = craftfileoutput(filemolecs,pushextension,modeatom,modebond,modehybridization,modetoken,modeformula)
             end
 
         # All other modes require no filemolecs value
@@ -412,7 +473,7 @@ function parseargs(args :: AbstractVector{<:AbstractString})
         #   add a stray flag catcher here!!
     end
 
-    return BehaviorBondcow(filemolecs,fileoutput,outputdirection,
+    return BehaviorBondcow(filemolecs,fileoutput,filebanlist,outputdirection,
                            modeatom,modebond,modehybridization,modetoken,modeformula,mfsubmode,
                            modehelp,modeversion,modecompareversion,
                            moderequirements,modeselfupdate)
@@ -440,6 +501,10 @@ function writeslog(bhvr :: BehaviorBondcow, slog :: AbstractVector{<:AbstractStr
     end
     close(fh)
     return nothing
+end
+
+function readintvec(path :: AbstractString)
+    return vec(DelimitedFiles.readdlm(path,Int))
 end
 
 # sym can be :w or :s
@@ -756,16 +821,30 @@ function atgetindex(attypes :: Union{AbstractVector{<:Integer},AbstractVector{<:
     return 0 # Value zero means the element wasn't found in the list
 end
 
-function makebondcensus(filemolecs :: AbstractString)
+function makebondcensus(bhvr :: BehaviorBondcow)
+    filemolecs = bhvr.filemolecs
+
+    banlist = Int[]
+    usebanned = false
+    nbanned = 0
+    if !isempty(bhvr.filebanlist)
+        usebanned = true
+        banlist = readintvec(bhvr.filebanlist)
+    end
+
     bondtypes = BondDescription[]
     bondcounts = Int[]
     anomalybonds = NTuple{3,Int}[]
     iom = 0
-    nmolecs = 0
     nfailed = 0
     for smi in eachline(filemolecs)
         iom += 1
-        nmolecs += 1
+
+        if usebanned && iom in banlist
+            nbanned += 1
+            continue
+        end
+
         (canary,bdescrs,anomalybonds) = getlistbonds(smi,iom,anomalybonds)
         if !canary
             nfailed += 1
@@ -783,22 +862,37 @@ function makebondcensus(filemolecs :: AbstractString)
         end
     end
 
-    return (bondtypes,bondcounts,nmolecs,nfailed,anomalybonds)
+    nmolecs = iom
+    return (bondtypes,bondcounts,nmolecs,nbanned,nfailed,anomalybonds)
 end
 
-function makeatcensus(filemolecs :: AbstractString; modehybridization :: Bool = false)
+function makeatcensus(bhvr :: BehaviorBondcow; modehybridization :: Bool = false)
+    filemolecs = bhvr.filemolecs
     if modehybridization
         attypes = String[] # Stores the symhyb of every atom type ("C_sp3" etc
     else
         attypes = Int[] # Stores the zahl of every atom type
     end
+
+    banlist = Int[]
+    usebanned = false
+    nbanned = 0
+    if !isempty(bhvr.filebanlist)
+        usebanned = true
+        banlist = readintvec(bhvr.filebanlist)
+    end
+
     atcounts = Int[]
     iom = 0
-    nmolecs = 0
     nfailed = 0
     for smi in eachline(filemolecs)
         iom += 1
-        nmolecs += 1
+
+        if usebanned && iom in banlist
+            nbanned += 1
+            continue
+        end
+
         if modehybridization
             # here1 rename azs to something neutral for ints and strings!
             (canary,azs) = getlistatoms_hybridization(smi,iom)
@@ -821,7 +915,8 @@ function makeatcensus(filemolecs :: AbstractString; modehybridization :: Bool = 
         end
     end
 
-    return (attypes,atcounts,nmolecs,nfailed)
+    nmolecs = iom
+    return (attypes,atcounts,nmolecs,nbanned,nfailed)
 end
 
 function getextension(filename :: AbstractString; strict :: Bool = false)
@@ -981,19 +1076,32 @@ function loadtokenizemolec(filemolecs :: AbstractString)
     end
 end
 
-function maketokencensus(filemolecs :: AbstractString)
+function maketokencensus(bhvr :: BehaviorBondcow)
+    filemolecs = bhvr.filemolecs
+
+    banlist = Int[]
+    usebanned = false
+    nbanned = 0
+    if !isempty(bhvr.filebanlist)
+        usebanned = true
+        banlist = readintvec(bhvr.filebanlist)
+    end
+
     tokentypes = String[]
     tokencounts = Int[]
     lencounts = Int[]
     longestlen = 0
     iom = 0
-    nmolecs = 0
     nfailed = 0
     tokenizemolec = loadtokenizemolec(filemolecs)
 
     for smi in eachline(filemolecs)
         iom += 1
-        nmolecs += 1
+
+        if usebanned && iom in banlist
+            nbanned += 1
+            continue
+        end
 
         # tokenizemolec is an alias for either splitsmiles or splitselfies
         (canary,tokens) = tokenizemolec(smi)
@@ -1024,7 +1132,8 @@ function maketokencensus(filemolecs :: AbstractString)
         end
     end
 
-    return (tokentypes,tokencounts,lencounts,nmolecs,nfailed)
+    nmolecs = iom
+    return (tokentypes,tokencounts,lencounts,nmolecs,nbanned,nfailed)
 end
 
 function getmolecformula(smi :: AbstractString, smode :: AbstractString)
@@ -1036,12 +1145,26 @@ function makeformulacensus(bhvr :: BehaviorBondcow)
     filemolecs = bhvr.filemolecs
     smode = String(bhvr.mfsubmode)
 
+    banlist = Int[]
+    usebanned = false
+    nbanned = 0
+    if !isempty(bhvr.filebanlist)
+        usebanned = true
+        banlist = readintvec(bhvr.filebanlist)
+    end
+
     formulatypes = FormulaDescription[]
     formulacounts = Int[]
-    nmolecs = 0
+    iom = 0
     nfailed = 0
     for smi in eachline(filemolecs)
-        nmolecs += 1
+        iom += 1
+
+        if usebanned && iom in banlist
+            nbanned += 1
+            continue
+        end
+
         (canary,formula) = getmolecformula(smi,smode)
         if !canary
             nfailed += 1
@@ -1057,7 +1180,8 @@ function makeformulacensus(bhvr :: BehaviorBondcow)
         end
     end
 
-    return (formulatypes,formulacounts,nmolecs,nfailed)
+    nmolecs = iom
+    return (formulatypes,formulacounts,nmolecs,nbanned,nfailed)
 end
 
 function parseformuladescription(formula :: FormulaDescription)
@@ -1157,7 +1281,8 @@ function qfmt(fval :: AbstractFloat;lpad :: Bool = true)
     end
 end
 
-function fmtformulacensus(filemolecs :: AbstractString, formulatypes :: AbstractVector{<:FormulaDescription}, formulacounts :: AbstractVector{<:Integer}, nmolecs :: Integer, nfailed :: Integer)
+function fmtformulacensus(bhvr :: BehaviorBondcow, formulatypes :: AbstractVector{<:FormulaDescription}, formulacounts :: AbstractVector{<:Integer}, nmolecs :: Integer, nbanned :: Integer, nfailed :: Integer)
+    filemolecs = bhvr.filemolecs
 
     nf = length(formulacounts)
     ndnf = ndigits(nf)
@@ -1273,7 +1398,15 @@ function fmtformulacensus(filemolecs :: AbstractString, formulatypes :: Abstract
     npm_HCO = sum(counts_HCO_O)
     npm_HCNO = sum(counts_HCNO_N)
 
-    push!(slog,"$filemolecs $nmolecs\n")
+    strheader = "$filemolecs $nmolecs"
+
+    if isempty(bhvr.filebanlist)
+        push!(slog,strheader*'\n')
+    else
+        strheader *= " banlist: $(bhvr.filebanlist) $(round(100.0*nbanned/nmolecs,digits=2))"
+        push!(slog,strheader*'\n')
+    end
+
     push!(slog,"$nfailed $(round(100.0*nfailed/nmolecs,digits=2))\n")
     push!(slog,"$npm_HC $npm_HCN $npm_HCO $npm_HCNO\n")
     push!(slog,"$(qfmt(100*npm_HC/nmolecs)) $(qfmt(100*npm_HCN/nmolecs)) $(qfmt(100*npm_HCO/nmolecs)) $(qfmt(100*npm_HCNO/nmolecs))\n")
@@ -1330,9 +1463,9 @@ function fmtformulacensus(filemolecs :: AbstractString, formulatypes :: Abstract
     return slog
 end
 
-function outputformulacensus(bhvr :: BehaviorBondcow, formulatypes :: AbstractVector{<:FormulaDescription}, formulacounts :: AbstractVector{<:Integer}, nmolecs :: Integer, nfailed :: Integer)
+function outputformulacensus(bhvr :: BehaviorBondcow, formulatypes :: AbstractVector{<:FormulaDescription}, formulacounts :: AbstractVector{<:Integer}, nmolecs :: Integer, nbanned :: Integer, nfailed :: Integer)
     filemolecs = bhvr.filemolecs
-    slog = fmtformulacensus(filemolecs,formulatypes,formulacounts,nmolecs,nfailed)
+    slog = fmtformulacensus(bhvr,formulatypes,formulacounts,nmolecs,nbanned,nfailed)
 
     if isdirectionoutput(bhvr,:w)
         writeslog(bhvr,slog)
@@ -1479,7 +1612,8 @@ function resolvebondtype(requestedtype :: AbstractChar)
     end
 end
 
-function fmtbondcensus(filemolecs :: AbstractString, bondtypes :: AbstractVector{<:BondDescription}, bondcounts :: AbstractVector{<:Integer}, nmolecs :: Integer, nfailed :: Integer, anomalybonds :: AbstractVector{<:NTuple{3,Int}}; sorted :: Bool = true)
+function fmtbondcensus(bhvr :: BehaviorBondcow, bondtypes :: AbstractVector{<:BondDescription}, bondcounts :: AbstractVector{<:Integer}, nmolecs :: Integer, nbanned :: Integer, nfailed :: Integer, anomalybonds :: AbstractVector{<:NTuple{3,Int}}; sorted :: Bool = true)
+    filemolecs = bhvr.filemolecs
     slog = String[]
     if sorted
         sp = sortperm(bondcounts,rev=true)
@@ -1512,7 +1646,15 @@ function fmtbondcensus(filemolecs :: AbstractString, bondtypes :: AbstractVector
     j = 0
     # max n(chars for the hat-hat bond counts)
     nc_nbh = maximum( ndigits.( bondcounts[ibth]) )
-    push!(slog,"$filemolecs $nmolecs\n")
+    strheader = "$filemolecs $nmolecs"
+
+    if isempty(bhvr.filebanlist)
+        push!(slog,strheader*'\n')
+    else
+        strheader *= " banlist: $(bhvr.filebanlist) $(round(100.0*nbanned/nmolecs,digits=2))"
+        push!(slog,strheader*'\n')
+    end
+
     # here1 Oh no I forgot about the easy-formatting functions. I have a few other instances of the round fun being used and I also ought to change those for these quickformatting funs EDIT: I also have the qfmt function in this file; ought to be replaced by a proper quick-formatting function
     push!(slog,"$nfailed $(round(100.0*nfailed/nmolecs,digits=2))\n")
     push!(slog,"$tbc_h $tbc_l $tbc\n")
@@ -1564,12 +1706,13 @@ function fmtbondcensus(filemolecs :: AbstractString, bondtypes :: AbstractVector
     return slog
 end
 
-function fmtatcensus(filemolecs :: AbstractString, atzahlen :: AbstractVector{<:Integer}, atcounts :: AbstractVector{<:Integer}, nmolecs :: Integer, nfailed :: Integer; sorted :: Bool = true)
+function fmtatcensus(bhvr :: BehaviorBondcow, atzahlen :: AbstractVector{<:Integer}, atcounts :: AbstractVector{<:Integer}, nmolecs :: Integer, nbanned :: Integer, nfailed :: Integer; sorted :: Bool = true)
     atsyms = zahl2sym(atzahlen)
-    return fmtatcensus(filemolecs,atsyms,atcounts,nmolecs,nfailed;sorted=sorted)
+    return fmtatcensus(bhvr,atsyms,atcounts,nmolecs,nbanned,nfailed;sorted=sorted)
 end
 
-function fmtatcensus(filemolecs :: AbstractString, attypes :: AbstractVector{<:AbstractString}, atcounts :: AbstractVector{<:Integer}, nmolecs :: Integer, nfailed :: Integer; sorted :: Bool = true)
+function fmtatcensus(bhvr :: BehaviorBondcow, attypes :: AbstractVector{<:AbstractString}, atcounts :: AbstractVector{<:Integer}, nmolecs :: Integer, nbanned :: Integer, nfailed :: Integer; sorted :: Bool = true)
+    filemolecs = bhvr.filemolecs
     slog = String[]
     if sorted
         sp = sortperm(atcounts,rev=true)
@@ -1617,7 +1760,15 @@ function fmtatcensus(filemolecs :: AbstractString, attypes :: AbstractVector{<:A
     j = 0
     # max n(chars for the atom counts)
     nc_na = maximum( ndigits.( atcounts) )
-    push!(slog,"$filemolecs $nmolecs\n")
+    strheader = "$filemolecs $nmolecs"
+
+    if isempty(bhvr.filebanlist)
+        push!(slog,strheader*'\n')
+    else
+        strheader *= " banlist: $(bhvr.filebanlist) $(round(100.0*nbanned/nmolecs,digits=2))"
+        push!(slog,strheader*'\n')
+    end
+
     # here1 Oh no I forgot about the easy-formatting functions. I have a few other instances of the round fun being used and I also ought to change those for these quickformatting funs
     push!(slog,"$nfailed $(round(100.0*nfailed/nmolecs,digits=2))\n")
     push!(slog,"$tac_h $tac_l $tac\n")
@@ -1660,9 +1811,9 @@ function fmtatcensus(filemolecs :: AbstractString, attypes :: AbstractVector{<:A
     return slog
 end
 
-function outputbondcensus(bhvr :: BehaviorBondcow, bondtypes :: AbstractVector{<:BondDescription}, bondcounts :: AbstractVector{<:Integer}, nmolecs :: Integer, nfailed :: Integer, anomalybonds :: AbstractVector{<:NTuple{3,Int}}; sorted :: Bool = true)
+function outputbondcensus(bhvr :: BehaviorBondcow, bondtypes :: AbstractVector{<:BondDescription}, bondcounts :: AbstractVector{<:Integer}, nmolecs :: Integer, nbanned :: Integer, nfailed :: Integer, anomalybonds :: AbstractVector{<:NTuple{3,Int}}; sorted :: Bool = true)
     filemolecs = bhvr.filemolecs
-    slog = fmtbondcensus(filemolecs,bondtypes,bondcounts,nmolecs,nfailed,anomalybonds; sorted=true)
+    slog = fmtbondcensus(bhvr,bondtypes,bondcounts,nmolecs,nbanned,nfailed,anomalybonds; sorted=true)
 
     if isdirectionoutput(bhvr,:w)
         writeslog(bhvr,slog)
@@ -1679,9 +1830,9 @@ end
 #   but the fun fmtatcensus converts the ivec to an svec with symbols, so the actual
 #   fmtatcensus fun always uses strings to characterize the atom types regardless of
 #   the type of attypes_atzahlen that you passed
-function outputatcensus(bhvr :: BehaviorBondcow, attypes_atzahlen :: Union{AbstractVector{<:Integer},AbstractVector{<:AbstractString}}, atcounts :: AbstractVector{<:Integer}, nmolecs :: Integer, nfailed :: Integer; sorted :: Bool = true)
+function outputatcensus(bhvr :: BehaviorBondcow, attypes_atzahlen :: Union{AbstractVector{<:Integer},AbstractVector{<:AbstractString}}, atcounts :: AbstractVector{<:Integer}, nmolecs :: Integer, nbanned :: Integer, nfailed :: Integer; sorted :: Bool = true)
     filemolecs = bhvr.filemolecs
-    slog = fmtatcensus(filemolecs,attypes_atzahlen,atcounts,nmolecs,nfailed; sorted=sorted)
+    slog = fmtatcensus(bhvr,attypes_atzahlen,atcounts,nmolecs,nbanned,nfailed; sorted=sorted)
 
     if isdirectionoutput(bhvr,:w)
         writeslog(bhvr,slog)
@@ -1692,7 +1843,8 @@ function outputatcensus(bhvr :: BehaviorBondcow, attypes_atzahlen :: Union{Abstr
     return nothing
 end
 
-function fmttokencensus(filemolecs :: AbstractString, tokentypes :: AbstractVector{<:AbstractString}, tokencounts :: AbstractVector{<:Integer}, lencounts :: AbstractVector{<:Integer}, nmolecs :: Integer, nfailed :: Integer; sorted :: Bool = true)
+function fmttokencensus(bhvr :: BehaviorBondcow, tokentypes :: AbstractVector{<:AbstractString}, tokencounts :: AbstractVector{<:Integer}, lencounts :: AbstractVector{<:Integer}, nmolecs :: Integer, nbanned :: Integer, nfailed :: Integer; sorted :: Bool = true)
+    filemolecs = bhvr.filemolecs
     slog = String[]
     if sorted
         sp = sortperm(tokencounts,rev=true)
@@ -1714,7 +1866,15 @@ function fmttokencensus(filemolecs :: AbstractString, tokentypes :: AbstractVect
     nd_nl = ndigits(nl)
     nc_l = maximum( ndigits.(lencounts) ) # max nchars in the len list
 
-    push!(slog,"$filemolecs $nmolecs\n")
+    strheader = "$filemolecs $nmolecs"
+
+    if isempty(bhvr.filebanlist)
+        push!(slog,strheader*'\n')
+    else
+        strheader *= " banlist: $(bhvr.filebanlist) $(round(100.0*nbanned/nmolecs,digits=2))"
+        push!(slog,strheader*'\n')
+    end
+
     push!(slog,"$nfailed $(round(100.0*nfailed/nmolecs,digits=2))\n")
     push!(slog,"$ttc\n")
     push!(slog,"\n")
@@ -1747,9 +1907,9 @@ function fmttokencensus(filemolecs :: AbstractString, tokentypes :: AbstractVect
     return slog
 end
 
-function outputtokencensus(bhvr :: BehaviorBondcow, tokentypes :: AbstractVector{<:AbstractString}, tokencounts :: AbstractVector{<:Integer}, lencounts :: AbstractVector{<:Integer}, nmolecs :: Integer, nfailed :: Integer; sorted :: Bool = true)
+function outputtokencensus(bhvr :: BehaviorBondcow, tokentypes :: AbstractVector{<:AbstractString}, tokencounts :: AbstractVector{<:Integer}, lencounts :: AbstractVector{<:Integer}, nmolecs :: Integer, nbanned :: Integer, nfailed :: Integer; sorted :: Bool = true)
     filemolecs = bhvr.filemolecs
-    slog = fmttokencensus(filemolecs,tokentypes,tokencounts,lencounts,nmolecs,nfailed; sorted=sorted)
+    slog = fmttokencensus(bhvr,tokentypes,tokencounts,lencounts,nmolecs,nbanned,nfailed; sorted=sorted)
 
     if isdirectionoutput(bhvr,:w)
         writeslog(bhvr,slog)

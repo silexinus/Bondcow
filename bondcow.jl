@@ -26,18 +26,18 @@ end
 
 if behaviorbondcow.modeatoms
     # here1 fix the makeatcensus call. modehybridization should be read from the struct; maybe make an alias that takes the filename and hybridization and packs these into a BehaviorBondcow?
-    (attypes,atcounts,nmolecs,nfailed) = makeatcensus(behaviorbondcow.filemolecs;modehybridization=false)
-    outputatcensus(behaviorbondcow,attypes,atcounts,nmolecs,nfailed)
+    (attypes,atcounts,nmolecs,nbanned,nfailed) = makeatcensus(behaviorbondcow;modehybridization=false)
+    outputatcensus(behaviorbondcow,attypes,atcounts,nmolecs,nbanned,nfailed)
 elseif behaviorbondcow.modebonds
-    (bondtypes,bondcounts,nmolecs,nfailed,anomalybonds) = makebondcensus(behaviorbondcow.filemolecs)
-    outputbondcensus(behaviorbondcow,bondtypes,bondcounts,nmolecs,nfailed,anomalybonds)
+    (bondtypes,bondcounts,nmolecs,nbanned,nfailed,anomalybonds) = makebondcensus(behaviorbondcow)
+    outputbondcensus(behaviorbondcow,bondtypes,bondcounts,nmolecs,nbanned,nfailed,anomalybonds)
 elseif behaviorbondcow.modehybridization
-    (attypes,atcounts,nmolecs,nfailed) = makeatcensus(behaviorbondcow.filemolecs;modehybridization=true)
-    outputatcensus(behaviorbondcow,attypes,atcounts,nmolecs,nfailed)
+    (attypes,atcounts,nmolecs,nbanned,nfailed) = makeatcensus(behaviorbondcow;modehybridization=true)
+    outputatcensus(behaviorbondcow,attypes,atcounts,nmolecs,nbanned,nfailed)
 elseif behaviorbondcow.modetokens
-    (tokentypes,tokencounts,lencounts,nmolecs,nfailed) = maketokencensus(behaviorbondcow.filemolecs)
-    outputtokencensus(behaviorbondcow,tokentypes,tokencounts,lencounts,nmolecs,nfailed)
+    (tokentypes,tokencounts,lencounts,nmolecs,nbanned,nfailed) = maketokencensus(behaviorbondcow)
+    outputtokencensus(behaviorbondcow,tokentypes,tokencounts,lencounts,nmolecs,nbanned,nfailed)
 elseif behaviorbondcow.modeformula
-    (formulatypes,formulacounts,nmolecs,nfailed) = makeformulacensus(behaviorbondcow)
-    outputformulacensus(behaviorbondcow,formulatypes,formulacounts,nmolecs,nfailed)
+    (formulatypes,formulacounts,nmolecs,nbanned,nfailed) = makeformulacensus(behaviorbondcow)
+    outputformulacensus(behaviorbondcow,formulatypes,formulacounts,nmolecs,nbanned,nfailed)
 end

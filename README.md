@@ -14,6 +14,7 @@
   - [Atom list (by hybridization)](#atom-list-by-hybridization)
   - [Token list](#token-list)
   - [Formula list](#formula-list)
+  - [Skip certain molecules](#skip-certain-molecules)
 - [Requirements and install instructions](#requirements-and-install-instructions)
   - [The `julia` part](#the-julia-part)
   - [The python part](#the-python-part)
@@ -223,11 +224,15 @@ CBr
 Call the program like this to get the token list:
 
 ```
-$:julia bondcow.jl testsmis-bondcow-tokenClBr.smi -t -o bncw-t-testsmis-bondcow-tokenClBr-smi.out
-$:julia bondcow.jl --token --output bncw-t-testsmis-bondcow-tokenClBr-smi.out testsmis-bondcow-tokenClBr.smi
+$:julia bondcow.jl testsmis-bondcow-tokenClBr.smi -t --pushextension
+$:julia bondcow.jl --token --pushextension testsmis-bondcow-tokenClBr.smi
 ```
 
-These calls look different from those of the other examples. Given the input filename, the default output filename is `bncw-t-testsmis-bondcow-tokenClBr.out`, which loses the input file's extension and the information on what the initial encoding was (SMILES), so we use the `-o` or `--output` flags to override the default output name.
+It's advisable to pass  `--pushextension` to `bondcow` token calls: if we had represented the molecules from this toy dataset in, say, deepSMILES under the filename `testsmis-bondcow-tokenClBr.dsmi`, the default output filename would be `bncw-t-testsmis-bondcow-tokenClBr.out` for both input files. The flag `--pushextension` preserves the input file's extension, so now our output files are `bncw-t-testsmis-bondcow-tokenClBr-smi.out` and `bncw-t-testsmis-bondcow-tokenClBr-dsmi.out`. If you prefer to specify the output filename, pass the `-o` or `--output` flags, like this:
+
+```
+$:julia bondcow.jl testsmis-bondcow-tokenClBr.smi -t --output tokencensusoversmis-testsmis-bondcow-tokenClBr.out
+```
 
 Here is `bncw-t-testsmis-bondcow-tokenClBr-smi.out`:
 
@@ -398,6 +403,33 @@ Block 8 lists all formulas in the file, sorted by frequency:
     * the amount of molecules with this formula, and the percentage this corresponds to considering all molecules in the file.
 
 QM9 has 621 unique formulas; these files are _large_.
+
+## Skip certain molecules
+
+Use the flag `--banlist` if you want to exclude certain molecules from a `bondcow` run. This works in all of its modes. For example, the [PC9 dataset](https://doi.org/10.1186/s13321-019-0391-2) has 2505 molecules that can't be converted to SELFIES. The indices of those molecules are available in [`errormolecs-slf-smis1-pc9.dat`](https://github.com/silexinus/Bondcow/blob/main/errormolecs-slf-smis1-pc9.dat), and you can tell `bondcow` to skip over those molecules like this:
+
+```
+$:julia bondcow.jl smis1-pc9.smi -b --banlist errormolecs-slf-smis1-pc9.dat       
+$:julia bondcow.jl smis1-pc9.smi -a --banlist errormolecs-slf-smis1-pc9.dat       
+$:julia bondcow.jl smis1-pc9.smi -y --banlist errormolecs-slf-smis1-pc9.dat       
+$:julia bondcow.jl smis1-pc9.smi -f --banlist errormolecs-slf-smis1-pc9.dat
+```
+
+Here's the header block for `bncw-b-smis1-pc9.out`.
+
+```
+smis1-pc9.smi 99234 banlist: errormolecs-slf-smis1-pc9.dat 2.52                 
+0 0.0                                                                           
+764883 965130 1730013
+```
+
+Since a banlist was passed, the banlist filename is included in the first line, and the `2.52` is the percentage of molecules that were excluded from the census. Had we not passed that banlist, the header would instead look like this:
+
+```
+smis1-pc9.smi 99234
+1234 1.24
+774611 972836 1747447
+```
 
 # Requirements and install instructions
 
