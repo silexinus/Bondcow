@@ -292,7 +292,7 @@ The third block lists the token-lengths of the strings in the file:
     * the token-length,
     * the amount of times it appears and the percentage this corresponds to for all token-lengths of the strings in the file.
 
-This is the only mode where the strings are never parsed by `rdkit`. Therefore, absurd strings like `mooooooooooooooo` will be taken at face value and tokenized as all other strings. A feature to detect and exclude malformed strings is in the works.
+This is the only mode where the strings are never parsed by `rdkit`. Therefore, absurd strings like `mooooooooooooooo` will be taken at face value and tokenized as all other strings. If you want a `bondcow` run to skip over nonsense strings, see [skip certain molecules](#skip-certain-molecules).
 
 ### A remark on edge-cases
 
@@ -415,7 +415,7 @@ $:julia bondcow.jl smis1-pc9.smi -y --banlist errormolecs-slf-smis1-pc9.dat
 $:julia bondcow.jl smis1-pc9.smi -f --banlist errormolecs-slf-smis1-pc9.dat
 ```
 
-Here's the header block for `bncw-b-smis1-pc9.out`.
+Here's the header block for [`bncw-b-smis1-pc9.out`](https://github.com/silexinus/Bondcow/blob/main/Output-examples-bondcow/bncw-b-smis1-pc9.out).
 
 ```
 smis1-pc9.smi 99234 banlist: errormolecs-slf-smis1-pc9.dat 2.52                 
@@ -423,7 +423,7 @@ smis1-pc9.smi 99234 banlist: errormolecs-slf-smis1-pc9.dat 2.52
 764883 965130 1730013
 ```
 
-Since a banlist was passed, the banlist filename is included in the first line, and the `2.52` is the percentage of molecules that were excluded from the census. Had we not passed that banlist, the header would instead look like this:
+A banlist was passed, so the banlist filename is included in the first line, and the `2.52` is the percentage of molecules that were excluded from the census. Had we not passed that banlist, the header would instead look like this:
 
 ```
 smis1-pc9.smi 99234
